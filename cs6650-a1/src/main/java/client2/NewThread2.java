@@ -49,8 +49,8 @@ public class NewThread2 implements Runnable {
 
   @Override
   public void run() {
-//    apiClient.setBasePath("http://" + parameters.ip + ":" + parameters.port + "/cs6650_a1_war_exploded/skiers/");
-    apiClient.setBasePath("http://" + parameters.ip + ":" + parameters.port + "/cs6650-a1_war/skiers/");
+    apiClient.setBasePath("http://" + parameters.ip + ":" + parameters.port + "/cs6650_a1_war_exploded/skiers/");
+//    apiClient.setBasePath("http://" + parameters.ip + ":" + parameters.port + "/cs6650-a1_war/skiers/");
     long postReqStart;
     long postReqEnd;
     for (int i = 0; i < numReqsPerThread; i++) {

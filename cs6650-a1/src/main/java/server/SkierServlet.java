@@ -1,14 +1,46 @@
 package server;
 
+import com.rabbitmq.client.Connection;
+import com.rabbitmq.client.ConnectionFactory;
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.util.regex.Pattern;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import rabbitMQ.MessageQueueConnection;
+import rabbitMQ.Send;
 
 @WebServlet(name = "SkierServlet")
 public class SkierServlet extends HttpServlet {
+
+  private final static Pattern PATTERN_POST = Pattern.compile("\\/liftrides");
+  Connection conn;
+  MessageQueueConnection pool;
+
+  @Override
+  public void init() throws ServletException {
+    super.init();
+    ConnectionFactory factory = new ConnectionFactory();
+    factory.setHost(Send.HOST_NAME);
+    conn = tryGetConnection(factory);
+    try {
+      pool = new MessageQueueConnection(conn);
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+  }
+
+  private static Connection tryGetConnection(ConnectionFactory factory) {
+    try {
+      return factory.newConnection();
+    } catch (Exception e) {
+      e.printStackTrace();
+      return null;
+    }
+  }
 
   /*
     POST requests write a new lift for the skier, it follows this format:
@@ -31,13 +63,31 @@ public class SkierServlet extends HttpServlet {
       res.getWriter().write("{\n" +
           "  \"message\": \"ERROR: missing or incorrect parameters\"\n" +
           "}");
-      return;
     } else {
-      res.setStatus(HttpServletResponse.SC_OK);
-      res.getWriter().write("{\n" +
-          "  \"message\": \"success\"\n" +
-          "}");
-      return;
+      StringBuilder buffer = new StringBuilder();
+      BufferedReader reader = req.getReader();
+      String line;
+      while ((line = reader.readLine()) != null) {
+        buffer.append(line);
+      }
+      String data = buffer.toString();
+      int sendRes = Send.sendToQueue(pool, data);
+      switch (sendRes) {
+        case -2:
+          res.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+          res.getWriter().write("{\n" +
+              "  \"message\": \"Failed to Send\"\n" +
+              "}");
+          break;
+        case 1:
+          res.setStatus(HttpServletResponse.SC_CREATED);
+          break;
+        case 0:
+          res.setStatus(HttpServletResponse.SC_CREATED);
+          res.getWriter().write("{\n" +
+              "  \"message\": \"Record already exists.\"\n" +
+              "}");
+      }
     }
   }
 
@@ -67,13 +117,11 @@ public class SkierServlet extends HttpServlet {
       res.getWriter().write("{\n" +
           "  \"message\": \"ERROR: missing or incorrect parameters\"\n" +
           "}");
-      return;
     } else {
       res.setStatus(HttpServletResponse.SC_OK);
       res.getWriter().write("{\n" +
           "  \"message\": \"success\"\n" +
           "}");
-      return;
     }
   }
 
